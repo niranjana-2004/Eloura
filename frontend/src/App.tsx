@@ -1,5 +1,10 @@
-
-import { useState } from 'react'
+import {
+  fetchImages,
+  uploadImage,
+  type UploadedImage,
+  type ImageLibraryResponse,
+} from './services/imageService'
+import { useEffect, useRef, useState } from 'react'
 import {
   ArrowDownRight,
   ArrowRight,
@@ -50,9 +55,38 @@ const discoveries = [
 ]
 
 function App() {
+  const fileInputRef = useRef<HTMLInputElement>(null)
+  const [uploadedImages, setUploadedImages] = useState<
+    ImageLibraryResponse['images']
+  >([])
+  const [uploading, setUploading] = useState(false)
+  const [uploadError, setUploadError] = useState('')
+  const [uploadMessage, setUploadMessage] = useState('')
   const [query, setQuery] = useState('')
   const [activeNav, setActiveNav] = useState('Discover')
   const [saved, setSaved] = useState<string[]>([])
+
+  useEffect(() => {
+    let cancelled = false
+
+    async function loadImages() {
+      try {
+        const result = await fetchImages()
+
+        if (!cancelled) {
+          setUploadedImages(result.images)
+        }
+      } catch (error) {
+        console.error('Failed to load image library:', error)
+      }
+    }
+
+    void loadImages()
+
+    return () => {
+      cancelled = true
+    }
+  }, [])
 
   function handleSearch() {
     if (!query.trim()) return
@@ -61,7 +95,49 @@ function App() {
       query,
     )
   }
+  async function handleImageSelection(
+    event: React.ChangeEvent<HTMLInputElement>,
+  ) {
+    const file = event.target.files?.[0]
 
+    // Allow selecting the same image again later.
+    event.target.value = ''
+
+    if (!file) return
+
+    setUploadError('')
+    setUploadMessage('')
+
+    if (!['image/jpeg', 'image/png', 'image/webp'].includes(file.type)) {
+      setUploadError('Please select a JPEG, PNG, or WEBP image.')
+      return
+    }
+
+    if (file.size > 10 * 1024 * 1024) {
+      setUploadError('Your image must be 10 MB or smaller.')
+      return
+    }
+
+    setUploading(true)
+
+    try {
+
+      await uploadImage(file)
+
+      const result = await fetchImages()
+      setUploadedImages(result.images)
+
+      setActiveNav('My library')
+      setUploadMessage('Your memory has been uploaded successfully.')
+
+    } catch (error) {
+      setUploadError(
+        error instanceof Error ? error.message : 'Image upload failed.',
+      )
+    } finally {
+      setUploading(false)
+    }
+  }
   return (
     <div className="app-shell">
       <aside className="sidebar">
@@ -115,17 +191,37 @@ function App() {
       <main className="main-content">
         <header className="topbar">
           <span className="breadcrumb">Your world, in pictures</span>
-          <button
-            className="upload-button"
-            onClick={() =>
-              window.alert('Image upload will be enabled when we build the library backend.')
-            }
-          >
-            <ImagePlus size={17} />
-            <span>Add memories</span>
-          </button>
-        </header>
+          <div className="upload-control">
+            <input
+              ref={fileInputRef}
+              type="file"
+              accept="image/jpeg,image/png,image/webp"
+              hidden
+              onChange={handleImageSelection}
+            />
 
+            <button
+              className="upload-button"
+              type="button"
+              disabled={uploading}
+              onClick={() => fileInputRef.current?.click()}
+            >
+              <ImagePlus size={17} />
+              <span>{uploading ? 'Uploading...' : 'Add memories'}</span>
+            </button>
+          </div>
+        </header>
+        {uploadError && (
+          <div className="upload-feedback upload-error" role="alert">
+            {uploadError}
+          </div>
+        )}
+
+        {uploadMessage && (
+          <div className="upload-feedback upload-success" role="status">
+            {uploadMessage}
+          </div>
+        )}
         <section className="hero">
           <div className="eyebrow">
             <span className="eyebrow-line" />
@@ -196,13 +292,52 @@ function App() {
           </div>
 
           {activeNav === 'My library' && (
-            <div className="library-notice">
-              <ImagePlus size={19} />
-              <div>
-                <strong>Your visual library starts here.</strong>
-                <p>Image uploads and private storage are coming in the next milestone.</p>
+            <section className="library-section">
+              <div className="library-intro">
+                <ImagePlus size={20} />
+                <div>
+                  <strong>Your visual memories</strong>
+                  <p>
+                    {uploadedImages.length} image
+                    {uploadedImages.length === 1 ? '' : 's'} uploaded in this session.
+                  </p>
+                </div>
               </div>
-            </div>
+
+              {uploadedImages.length === 0 ? (
+                <div className="library-empty">
+                  <ImagePlus size={30} />
+                  <h3>Your library begins with a memory.</h3>
+                  <p>Upload an image to see it here.</p>
+                  <button
+                    className="upload-button"
+                    type="button"
+                    onClick={() => fileInputRef.current?.click()}
+                  >
+                    <ImagePlus size={16} />
+                    Add your first image
+                  </button>
+                </div>
+              ) : (
+                <div className="uploaded-grid">
+                  {uploadedImages.map((image) => (
+                    <article className="uploaded-card" key={image.id}>
+                      <img
+                        src={`http://localhost:8000${image.url}`}
+                        alt={image.filename}
+                        loading="lazy"
+                      />
+                      <div className="uploaded-caption">
+                        <strong title={image.filename}>{image.filename}</strong>
+                        <span>
+                          {image.width} × {image.height} · {image.format}
+                        </span>
+                      </div>
+                    </article>
+                  ))}
+                </div>
+              )}
+            </section>
           )}
 
           {activeNav === 'Mood boards' && (
