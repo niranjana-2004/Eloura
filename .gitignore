@@ -1,0 +1,54 @@
+
+# Environment variables and secrets
+.env
+.env.*
+!.env.example
+
+# Python
+__pycache__/
+*.py[cod]
+*.pyd
+*.so
+*.egg-info/
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.coverage
+htmlcov/
+
+# Python virtual environments
+.venv/
+venv/
+env/
+
+# AI models, embeddings and caches
+models/
+checkpoints/
+.cache/
+hf_cache/
+*.pt
+*.pth
+*.onnx
+
+# Local databases
+*.db
+*.sqlite
+*.sqlite3
+
+# Uploaded images and generated files
+uploads/
+storage/
+generated_images/
+*.tmp
+
+# Frontend dependencies and build output
+node_modules/
+dist/
+.vite/
+coverage/
+
+# IDE and operating system
+.antigravity/
+.idea/
+.DS_Store
+Thumbs.db
