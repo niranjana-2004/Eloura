@@ -1,9 +1,12 @@
 import {
   fetchImages,
   uploadImage,
+  searchImages,
   type UploadedImage,
   type ImageLibraryResponse,
+  type ImageSearchResult,
 } from './services/imageService'
+
 import { useEffect, useRef, useState } from 'react'
 import {
   ArrowDownRight,
@@ -66,6 +69,12 @@ function App() {
   const [activeNav, setActiveNav] = useState('Discover')
   const [saved, setSaved] = useState<string[]>([])
 
+  const [searchResults, setSearchResults] = useState<ImageSearchResult[]>([])
+  const [searching, setSearching] = useState(false)
+  const [searchError, setSearchError] = useState('')
+  const [hasSearched, setHasSearched] = useState(false)
+
+
   useEffect(() => {
     let cancelled = false
 
@@ -88,13 +97,32 @@ function App() {
     }
   }, [])
 
-  function handleSearch() {
-    if (!query.trim()) return
-    window.alert(
-      'Eloura search will be connected to the AI retrieval engine in a later milestone. Your search: ' +
-      query,
-    )
+
+  async function handleSearch() {
+    const searchQuery = query.trim()
+
+    if (!searchQuery || searching) return
+
+    setSearching(true)
+    setSearchError('')
+    setSearchResults([])
+    setHasSearched(true)
+    setActiveNav('Discover')
+
+    try {
+      const result = await searchImages(searchQuery, 20)
+      setSearchResults(result.results)
+    } catch (error) {
+      setSearchError(
+        error instanceof Error
+          ? error.message
+          : 'Something went wrong while searching your memories.',
+      )
+    } finally {
+      setSearching(false)
+    }
   }
+
   async function handleImageSelection(
     event: React.ChangeEvent<HTMLInputElement>,
   ) {
@@ -350,37 +378,113 @@ function App() {
             </div>
           )}
 
-          <div className="discovery-grid">
-            {discoveries.map((item) => {
-              const isSaved = saved.includes(item.title)
 
-              return (
-                <article className={`discovery-card ${item.className}`} key={item.title}>
-                  <img src={item.image} alt={item.title} loading="lazy" />
-                  <div className="image-overlay" />
-                  <span className="mood-tag">{item.mood}</span>
-                  <button
-                    className={`save-button ${isSaved ? 'saved' : ''}`}
-                    aria-label={isSaved ? `Unsave ${item.title}` : `Save ${item.title}`}
-                    aria-pressed={isSaved}
-                    onClick={() =>
-                      setSaved((current) =>
-                        isSaved
-                          ? current.filter((title) => title !== item.title)
-                          : [...current, item.title],
-                      )
-                    }
-                  >
-                    <Heart size={17} fill={isSaved ? 'currentColor' : 'none'} />
-                  </button>
-                  <div className="card-caption">
-                    <h3>{item.title}</h3>
-                    <p>{item.subtitle}</p>
+          {hasSearched && (
+            <section className="search-results-section" aria-live="polite">
+              <div className="section-heading">
+                <div>
+                  <div className="section-kicker">YOUR PERSONAL COLLECTION</div>
+                  <h2>Search results</h2>
+                  <p>
+                    {searching
+                      ? 'Finding the moments you described...'
+                      : `${searchResults.length} matching ${searchResults.length === 1 ? 'memory' : 'memories'
+                      } for "${query.trim()}"`}
+                  </p>
+                </div>
+
+                <button
+                  className="text-link"
+                  type="button"
+                  onClick={() => {
+                    setHasSearched(false)
+                    setSearchResults([])
+                    setSearchError('')
+                    setQuery('')
+                  }}
+                >
+                  Clear search
+                </button>
+              </div>
+
+              {searching && (
+                <div className="library-notice">
+                  <Sparkles size={19} />
+                  <div>
+                    <strong>Looking through your memories...</strong>
+                    <p>Finding images that match your description.</p>
                   </div>
-                </article>
-              )
-            })}
-          </div>
+                </div>
+              )}
+
+              {searchError && (
+                <div className="upload-feedback upload-error" role="alert">
+                  {searchError}
+                </div>
+              )}
+
+              {!searching && !searchError && searchResults.length === 0 && (
+                <div className="library-empty">
+                  <Search size={30} />
+                  <h3>No matching memories found.</h3>
+                  <p>Try describing the colours, scene, mood, or objects differently.</p>
+                </div>
+              )}
+
+              {!searching && searchResults.length > 0 && (
+                <div className="uploaded-grid">
+                  {searchResults.map((image) => (
+                    <article className="uploaded-card" key={image.id}>
+                      <img
+                        src={`http://127.0.0.1:8001${image.url}`}
+                        alt={image.filename}
+                        loading="lazy"
+                      />
+                      <div className="uploaded-caption">
+                        <strong title={image.filename}>{image.filename}</strong>
+                        <span>
+                          Similarity score: {image.similarity.toFixed(3)}
+                        </span>
+                      </div>
+                    </article>
+                  ))}
+                </div>
+              )}
+            </section>
+          )}
+          {!hasSearched && (
+            <div className="discovery-grid">
+              {discoveries.map((item) => {
+                const isSaved = saved.includes(item.title)
+
+                return (
+                  <article className={`discovery-card ${item.className}`} key={item.title}>
+                    <img src={item.image} alt={item.title} loading="lazy" />
+                    <div className="image-overlay" />
+                    <span className="mood-tag">{item.mood}</span>
+                    <button
+                      className={`save-button ${isSaved ? 'saved' : ''}`}
+                      aria-label={isSaved ? `Unsave ${item.title}` : `Save ${item.title}`}
+                      aria-pressed={isSaved}
+                      onClick={() =>
+                        setSaved((current) =>
+                          isSaved
+                            ? current.filter((title) => title !== item.title)
+                            : [...current, item.title],
+                        )
+                      }
+                    >
+                      <Heart size={17} fill={isSaved ? 'currentColor' : 'none'} />
+                    </button>
+                    <div className="card-caption">
+                      <h3>{item.title}</h3>
+                      <p>{item.subtitle}</p>
+                    </div>
+                  </article>
+                )
+              })}
+            </div>
+          )}
           <p className="demo-caption">
             A little inspiration for now · Sample photography, not your personal memories
           </p>
