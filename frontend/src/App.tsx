@@ -323,7 +323,7 @@ function App() {
                   {uploadedImages.map((image) => (
                     <article className="uploaded-card" key={image.id}>
                       <img
-                        src={`http://localhost:8000${image.url}`}
+                        src={`http://127.0.0.1:8001${image.url}`}
                         alt={image.filename}
                         loading="lazy"
                       />
