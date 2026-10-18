@@ -35,7 +35,10 @@ class EmbeddingService:
             features = self.model.encode_text(tokens)
             features /= features.norm(dim=-1, keepdim=True)
 
-        return features[0].cpu().tolist()
+        embedding = features[0].cpu().tolist()
+        print("TEXT EMBEDDING SAMPLE:", embedding[:5])
+
+        return embedding
 
 
 embedding_service = EmbeddingService()
