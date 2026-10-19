@@ -3,10 +3,9 @@ import numpy as np
 
 from app.db.database import get_images_with_embeddings
 from app.services.embedding_service import embedding_service
-print("EL0URA SEARCH SERVICE LOADED FROM:", __file__)
 
-# Initial threshold; tune this using relevant and irrelevant test queries.
 SIMILARITY_THRESHOLD = 0.10
+
 
 def search_images(query: str, limit: int = 20) -> dict:
     query = query.strip()
@@ -39,14 +38,7 @@ def search_images(query: str, limit: int = 20) -> dict:
                 + 1e-12
             )
         )
-        
-        print(
-            "IMAGE:", image["filename"],
-            "| ID:", image["id"],
-            "| EMBEDDING LENGTH:", len(image["embedding"]),
-            "| SIMILARITY:", round(similarity, 6),
-        )
-        
+
         results.append(
             {
                 "id": image["id"],
@@ -57,30 +49,19 @@ def search_images(query: str, limit: int = 20) -> dict:
             }
         )
 
-        print("Search query:", query)
-        print("Similarity scores before filtering:", [
-            item["similarity"] for item in results
-        ])
-        print("Threshold:", SIMILARITY_THRESHOLD)   
+    # Rank all images before applying the relevance threshold.
+    results.sort(
+        key=lambda item: item["similarity"],
+        reverse=True,
+    )
 
-        results.sort(
-            key=lambda item: item["similarity"],
-            reverse=True,
-        )
+    # Exclude images below the configured threshold.
+    results = [
+        item for item in results
+        if item["similarity"] >= SIMILARITY_THRESHOLD
+    ]
 
-        print("DEBUG: Search service file:", __file__)
-        print("DEBUG: Threshold:", SIMILARITY_THRESHOLD)
-        print("DEBUG: Scores before filtering:", [
-            item["similarity"] for item in results
-        ])
-
-        results = [
-            item for item in results
-            if item["similarity"] >= SIMILARITY_THRESHOLD
-        ]
-
-        print("DEBUG: Results after filtering:", len(results))
-
+    # Apply the result limit after filtering.
     results = results[:limit]
 
     return {

@@ -28,6 +28,7 @@ class EmbeddingService:
 
         return features[0].cpu().tolist()
 
+    
     def generate_text_embedding(self, text: str) -> list[float]:
         tokens = self.tokenizer([text]).to(self.device)
 
@@ -36,7 +37,6 @@ class EmbeddingService:
             features /= features.norm(dim=-1, keepdim=True)
 
         embedding = features[0].cpu().tolist()
-        print("TEXT EMBEDDING SAMPLE:", embedding[:5])
 
         return embedding
 
