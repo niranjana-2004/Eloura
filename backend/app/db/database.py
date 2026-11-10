@@ -47,6 +47,11 @@ def initialize_database() -> None:
                 "ALTER TABLE images ADD COLUMN embedding TEXT"
             )
 
+        if "visual_features" not in columns:
+            connection.execute(
+                "ALTER TABLE images ADD COLUMN visual_features TEXT"
+            )
+
 
 def save_image_metadata(image: dict) -> None:
     with get_connection() as connection:
@@ -83,6 +88,19 @@ def save_image_embedding(image_id: str, embedding: list[float]) -> None:
             raise ValueError(f"Image not found: {image_id}")
 
 
+def save_image_visual_features(image_id: str, visual_features: dict) -> None:
+    features_json = json.dumps(visual_features)
+
+    with get_connection() as connection:
+        cursor = connection.execute(
+            "UPDATE images SET visual_features = ? WHERE id = ?",
+            (features_json, image_id),
+        )
+
+        if cursor.rowcount == 0:
+            raise ValueError(f"Image not found: {image_id}")
+
+
 def get_all_images() -> list[dict]:
     with get_connection() as connection:
         rows = connection.execute(
@@ -101,7 +119,7 @@ def get_images_with_embeddings() -> list[dict]:
     with get_connection() as connection:
         rows = connection.execute(
             """
-            SELECT id, filename, stored_filename, embedding
+            SELECT id, filename, stored_filename, embedding, visual_features
             FROM images
             WHERE embedding IS NOT NULL
             ORDER BY created_at DESC, rowid DESC
@@ -112,5 +130,10 @@ def get_images_with_embeddings() -> list[dict]:
 
     for image in images:
         image["embedding"] = json.loads(image["embedding"])
+        image["visual_features"] = (
+            json.loads(image["visual_features"])
+            if image["visual_features"]
+            else None
+        )
 
     return images

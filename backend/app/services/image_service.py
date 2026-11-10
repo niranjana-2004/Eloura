@@ -6,8 +6,13 @@ from io import BytesIO
 from PIL import Image, UnidentifiedImageError
 from fastapi import HTTPException, UploadFile
 
-from app.db.database import save_image_metadata, save_image_embedding
+from app.db.database import (
+    save_image_embedding,
+    save_image_metadata,
+    save_image_visual_features,
+)
 from app.services.embedding_service import embedding_service
+from app.services.visual_features import extract_visual_features
 
 
 UPLOAD_DIR = Path(__file__).resolve().parents[3] / "storage" / "uploads"
@@ -91,6 +96,9 @@ async def save_uploaded_image(file: UploadFile) -> dict:
             str(destination)
         )
         save_image_embedding(image_id, embedding)
+
+        visual_features = extract_visual_features(str(destination))
+        save_image_visual_features(image_id, visual_features)
 
     except Exception as exc:
         destination.unlink(missing_ok=True)
